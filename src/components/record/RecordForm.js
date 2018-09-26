@@ -69,6 +69,13 @@ export function extendUiSchemaWhenDisabled(
   return { ...uiSchema, "ui:disabled": disabled };
 }
 
+function extendUiSchemaWithIdDisabled(uiSchema: Object, disabled: boolean) {
+  if (!disabled) {
+    return uiSchema;
+  }
+  return { ...uiSchema, id: { "ui:disabled": true } };
+}
+
 function AttachmentPreview({ mimetype, location }) {
   if (!mimetype.startsWith("image/")) {
     return null;
@@ -214,8 +221,13 @@ export default class RecordForm extends PureComponent<Props, State> {
     const {
       data: { schema = {}, uiSchema = {}, attachment },
     } = collection;
-    const recordData = (record && record.data) || {};
     const emptySchema = Object.keys(schema).length === 0;
+
+    let recordData = {};
+    if (record) {
+      // We may need the record id in the form data (see #609)
+      recordData = { ...cleanRecord(record.data), id: record.data.id };
+    }
 
     if (record && record.busy) {
       return <Spinner />;
@@ -269,7 +281,7 @@ export default class RecordForm extends PureComponent<Props, State> {
           )}
           <JSONRecordForm
             disabled={!this.allowEditing}
-            record={JSON.stringify(cleanRecord(recordData), null, 2)}
+            record={JSON.stringify(recordData, null, 2)}
             onSubmit={this.onSubmit}>
             {buttons}
           </JSONRecordForm>
@@ -280,12 +292,13 @@ export default class RecordForm extends PureComponent<Props, State> {
     const _schema = extendSchemaWithAttachment(schema, attachment, !!record);
     let _uiSchema = extendUiSchemaWithAttachment(uiSchema, attachment);
     _uiSchema = extendUiSchemaWhenDisabled(_uiSchema, !this.allowEditing);
+    _uiSchema = extendUiSchemaWithIdDisabled(_uiSchema, !!record);
 
     return (
       <BaseForm
         schema={_schema}
         uiSchema={_uiSchema}
-        formData={cleanRecord(recordData)}
+        formData={recordData}
         onSubmit={this.onSubmit}>
         {buttons}
       </BaseForm>
